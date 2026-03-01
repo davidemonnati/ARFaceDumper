@@ -66,7 +66,6 @@ class ARSceneView: NSObject, ObservableObject, ARSessionDelegate {
         frameCount += 1;
         
         if frameCount % 20 == 0 {
-            print(faceAnchor.geometry.vertices.count)
             let pos = faceAnchor.transform.columns.3
             let distance = sqrt(
                 pow(pos.x, 2) +
@@ -74,15 +73,26 @@ class ARSceneView: NSObject, ObservableObject, ARSessionDelegate {
                 pow(pos.z, 2)
             )
             
-            print("Distanza: \(distance ) m")
-            updateStatus(vertices: faceAnchor.geometry.vertices.count, distance: distance)
+            let blendShapes = faceAnchor.blendShapes
+            
+            updateStatus(vertices: faceAnchor.geometry.vertices.count, distance: distance, blendShapes: blendShapes)
         }
     }
     
-    func updateStatus(vertices: Int, distance: Float) {
+    func updateStatus(vertices: Int, distance: Float, blendShapes: [ARFaceAnchor.BlendShapeLocation : NSNumber]) {
+        let mouth = blendShapes[.jawOpen]?.floatValue ?? 0
+        let eyeBlinkL = blendShapes[.eyeBlinkLeft]?.floatValue ?? 0
+        let eyeBlinkR = blendShapes[.eyeBlinkRight]?.floatValue ?? 0
+        let tongue = (blendShapes[.tongueOut]?.floatValue ?? 0)
+        let smile = ((blendShapes[.mouthSmileLeft]?.floatValue ?? 0) + (blendShapes[.mouthSmileRight]?.floatValue ?? 0)) / 2
         self.status = """
 Vertices: \(vertices)
 Distance: \(distance)
+Mouth: \(mouth>0.2 ? "OPEN" : "CLOSED") (\(String(format: "%.2f", mouth)))
+Eyes L: \(eyeBlinkL>0.3 ? "CLOSED" : "OPEN") \(String(format: "%.2f", eyeBlinkL)) 
+Eyes R: \(eyeBlinkR>0.3 ? "CLOSED" : "OPEN") \(String(format: "%.2f", eyeBlinkR))
+Smile: \(String(format: "%.0f%%", smile * 100))
+Tongue: \(tongue > 0.5 ? "OUT" : "IN")
 """
     }
 }
