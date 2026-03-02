@@ -61,12 +61,14 @@ class ARSceneView: NSObject, ObservableObject, ARSessionDelegate {
     
     private var frameCount = 0
     var arView: ARView?
+    private var lastFaceAnchor: ARFaceAnchor?
     
     func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
         for anchor in anchors {
             guard let faceAnchor = anchor as? ARFaceAnchor else {
                 continue
             }
+            self.lastFaceAnchor = faceAnchor
             self.getParameters(faceAnchor: faceAnchor)
         }
     }
@@ -107,7 +109,6 @@ Tongue: \(tongue > 0.5 ? "OUT" : "IN")
     
     func captureDepthImage() {
         guard let frame = arView?.session.currentFrame else {
-            print("arView is nil")
             return
         }
         
@@ -119,6 +120,10 @@ Tongue: \(tongue > 0.5 ? "OUT" : "IN")
         let depthMap = depthData.depthDataMap
         
         saveDepthImage(depthMap: depthMap)
+        
+        if let faceAnchor = lastFaceAnchor {
+            saveFaceOBJ(faceAnchor: faceAnchor)
+        }
     }
     
     func saveDepthImage(depthMap: CVPixelBuffer) {
@@ -140,6 +145,51 @@ Tongue: \(tongue > 0.5 ? "OUT" : "IN")
         } else {
             print("Depth image saved!")
         }
+    }
+    
+    func exportFaceAnchorToOBJ(faceAnchor: ARFaceAnchor) -> String {
+        let geometry = faceAnchor.geometry
+        
+        var objContent = "# ARFaceAnchor OBJ Export\n"
+        objContent += "o Face\n\n"
+        
+        // vertices
+        for vertex in geometry.vertices {
+            objContent += "v \(vertex.x) \(vertex.y) \(vertex.z)\n"
+        }
+        objContent += "\n"
+        
+        // uv coordinates
+        for uv in geometry.textureCoordinates {
+            objContent += "vt \(uv.x) \(uv.y)\n"
+        }
+        objContent += "\n"
+        
+        // faces (triangles)
+        let indices = geometry.triangleIndices
+        let triangleCount = geometry.triangleCount
+        
+        for i in 0..<triangleCount {
+            let i0 = Int(indices[i * 3 + 0]) + 1
+            let i1 = Int(indices[i * 3 + 1]) + 1
+            let i2 = Int(indices[i * 3 + 2]) + 1
+            // formato: f vertice/uv vertice/uv vertice/uv
+            objContent += "f \(i0)/\(i0) \(i1)/\(i1) \(i2)/\(i2)\n"
+        }
+        
+        return objContent
+    }
+    
+    func saveFaceOBJ(faceAnchor: ARFaceAnchor) {
+        let objString = exportFaceAnchorToOBJ(faceAnchor: faceAnchor)
+        
+        let fileName = "face_mesh.obj"
+        let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let fileURL = documentsURL.appendingPathComponent(fileName)
+        
+        do {
+            try objString.write(to: fileURL, atomically: true, encoding: .utf8)
+        } catch { }
     }
 }
 
