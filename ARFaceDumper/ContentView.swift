@@ -15,6 +15,9 @@ import Combine
 struct ContentView: View {
     @StateObject private var arSceneView = ARSceneView()
     
+    @State private var offset: CGSize = .zero
+    @State private var lastOffset: CGSize = .zero
+    
     var body: some View {
         ZStack {
             ARFaceSceneView(arSceneView: arSceneView)
@@ -26,13 +29,54 @@ struct ContentView: View {
                 
                 Text(arSceneView.status)
                     .font(.system(.caption, design: .monospaced))
-            }
+                    .foregroundColor(.green)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(.ultraThinMaterial.opacity(0.6))
+                    .offset(offset)
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                offset = CGSize(
+                                    width:  lastOffset.width  + value.translation.width,
+                                    height: lastOffset.height + value.translation.height
+                                )
+                            }
+                            .onEnded { _ in
+                                lastOffset = offset
+                            }
+                    )
+                
+                Spacer()
             
-            HStack {
-                Button("Save depth", systemImage: "square.and.arrow.up") {
-                    arSceneView.captureDepthImage()
+                ZStack {
+                    Rectangle()
+                        .fill(.black)
+                        .frame(height: 140)
+                        .edgesIgnoringSafeArea(.bottom)
+                    
+                    Spacer()
+                    
+                    VStack(spacing: 0) {
+                        Button(action: {
+                            arSceneView.captureDepthImage()
+                        }) {
+                            ZStack {
+                                Circle()
+                                    .strokeBorder(.white, lineWidth: 3)
+                                    .frame(width: 72, height: 72)
+                                
+                                Circle()
+                                    .fill(.white)
+                                    .frame(width: 60, height: 60)
+                            }
+                        }
+                        .padding(.top, 18)
+                        .padding(.bottom, 20)
+                    }
                 }
             }
+            .preferredColorScheme(.dark)
         }
     }
 }
