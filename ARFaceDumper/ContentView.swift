@@ -47,6 +47,20 @@ struct ContentView: View {
                             }
                     )
                 
+                if let feedback = arSceneView.captureFeedback {
+                    Text(feedback.message)
+                        .font(.system(.footnote, design: .rounded))
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(feedback.isError ? Color.red.opacity(0.85) : Color.green.opacity(0.85))
+                        .clipShape(Capsule())
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .animation(.easeInOut(duration: 0.25), value: arSceneView.captureFeedback)
+                        .padding(.bottom, 10)
+                }
+                
                 Spacer()
             
                 ZStack {
@@ -100,8 +114,28 @@ struct ARFaceSceneView: UIViewRepresentable {
     func updateUIView(_ uiView: ARView, context: Context) {}
 }
 
+enum CaptureFeedback: Equatable {
+    case success
+    case noDepthData
+    case saveError(String)
+    
+    var message: String {
+        switch self {
+        case .success: return "✅ Image saved"
+        case .noDepthData: return "⚠️ No depth data yet, try again"
+        case .saveError(let reason): return "❌ Save failed: \(reason)"
+        }
+    }
+    
+    var isError: Bool {
+        if case .success = self { return false }
+        return true
+    }
+}
+
 class ARSceneView: NSObject, ObservableObject, ARSessionDelegate {
     @Published var status: String = "Waiting for the face..."
+    @Published var captureFeedback: CaptureFeedback?
     
     private var frameCount = 0
     var arView: ARView?
@@ -151,13 +185,23 @@ Tongue: \(tongue > 0.5 ? "OUT" : "IN")
 """
     }
     
-    func captureDepthImage() {
+    /// Tries to capture depth data, retrying across a few frames since
+    /// capturedDepthData isn't guaranteed to be present on every single frame.
+    func captureDepthImage(attemptsLeft: Int = 10) {
         guard let frame = arView?.session.currentFrame else {
             return
         }
         
         guard let depthData = frame.capturedDepthData else {
-            print("Depth data not captured in the current frame")
+            if attemptsLeft > 0 {
+                // Wait for the next frame (~1/60s) and try again.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0 / 60.0) { [weak self] in
+                    self?.captureDepthImage(attemptsLeft: attemptsLeft - 1)
+                }
+            } else {
+                print("Depth data not captured after several attempts")
+                showFeedback(.noDepthData)
+            }
             return
         }
         
@@ -186,8 +230,22 @@ Tongue: \(tongue > 0.5 ? "OUT" : "IN")
     @objc func imageSaved(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeMutableRawPointer) {
         if let error = error {
             print("Save error: \(error.localizedDescription)")
+            showFeedback(.saveError(error.localizedDescription))
         } else {
             print("Depth image saved!")
+            showFeedback(.success)
+        }
+    }
+    
+    /// Shows a transient feedback message, auto-dismissed after a couple of seconds.
+    private func showFeedback(_ feedback: CaptureFeedback) {
+        DispatchQueue.main.async {
+            self.captureFeedback = feedback
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                if self.captureFeedback == feedback {
+                    self.captureFeedback = nil
+                }
+            }
         }
     }
     
