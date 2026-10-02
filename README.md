@@ -70,7 +70,7 @@ ARFaceDumper is an iOS application built on **ARKit Face Tracking** that streams
 ## Installation
 
 ```bash
-git clone https://github.com/<your-username>/ARFaceDumper.git
+git clone https://github.com/davidemonnati/ARFaceDumper.git
 cd ARFaceDumper
 open ARFaceDumper.xcodeproj
 ```
@@ -193,41 +193,12 @@ ARFaceDumper.xcodeproj/       # Xcode project
 
 ---
 
-## Testing
-
-```bash
-xcodebuild test \
-  -project ARFaceDumper.xcodeproj \
-  -scheme ARFaceDumper \
-  -destination 'platform=iOS,name=<Your Device>'
-```
-
-Unit tests live in `ARFaceDumperTests`, UI and launch tests in `ARFaceDumperUITests`. Because face tracking requires a TrueDepth sensor, tests exercising the capture pipeline must run on a physical device.
-
----
-
 ## Limitations & Roadmap
-
-**Current limitations**
 
 - `capturedDepthData` is not populated on every frame; when absent, the depth capture is skipped and the condition is only reported to the console.
 - The depth buffer is converted without normalization or tone mapping, so the saved image is not optimized for visual inspection.
 - OBJ export uses a fixed filename and omits vertex normals and material definitions.
 - Failures while writing the OBJ file are silently discarded.
-
-**Possible improvements**
-
-- Timestamped filenames and an in-app capture history backed by the existing SwiftData model.
-- Normalized or color-mapped depth output alongside the raw buffer.
-- Blend-shape stream export (CSV or JSON) for animation and dataset workflows.
-- User-facing error reporting for capture and export failures.
-- A share sheet for exporting artifacts without a desktop connection.
-
----
-
-## Contributing
-
-Contributions are welcome. Please open an issue to discuss substantial changes before submitting a pull request, keep commits focused, and verify that the project builds and runs on a TrueDepth device.
 
 ---
 
